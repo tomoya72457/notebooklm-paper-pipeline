@@ -2,6 +2,8 @@
 
 論文 PDF を 1 本投入するだけで、**音声解説・動画解説・スライド資料・インフォグラフィック** の 4 種類の生成物を NotebookLM で自動生成し、論文フォルダに保存するための処理系です。
 
+**対応 OS**: macOS / Windows / Linux
+
 ---
 
 ## 📁 リポジトリ構成
@@ -23,41 +25,84 @@ notebooklm-paper-pipeline/
 
 リポジトリのルートディレクトリで以下を実行します。
 
+**macOS / Linux**
+
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 ```
 
-> 仮想環境を有効化したターミナルで以降の作業を行ってください。
+**Windows(PowerShell)**
 
-### 2. NotebookLM MCP サーバー(`nlm` CLI)のインストール
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+```
 
-このパイプラインは [`notebooklm-mcp`](https://github.com/yutkat/notebooklm-mcp) が提供する `nlm` コマンドを内部で呼び出します。クローンした直後は入っていないので、以下のいずれかの方法でインストールしてください。
+**Windows(コマンドプロンプト)**
+
+```cmd
+python -m venv .venv
+.venv\Scripts\activate.bat
+```
+
+> 仮想環境を有効化したターミナルで以降の作業を行ってください。本スクリプトは Python 標準ライブラリのみで動作するため、`pip install` で追加のパッケージを入れる必要はありません。
+
+### 2. Google Chrome のインストール
+
+`nlm` の認証は **Google Chrome を起動して Google アカウントにログイン** することで行われます。Chrome が入っていない環境では認証ができないため、まず Chrome をインストールしてください。
+
+- ダウンロード: https://www.google.com/chrome/
+
+### 3. NotebookLM MCP サーバー(`nlm` CLI)のインストール
+
+このパイプラインは [`notebooklm-mcp`](https://github.com/yutkat/notebooklm-mcp) が提供する `nlm` コマンドを内部で呼び出します。クローンした直後は入っていないので、お使いの OS に合わせてインストールしてください。
+
+**macOS(Homebrew)**
 
 ```bash
-# Homebrew(macOS 推奨)
 brew install nlm
+```
 
-# もしくは go install
+**Windows / Linux / macOS 共通(Go を使う方法)**
+
+事前に [Go](https://go.dev/dl/) をインストールしたうえで:
+
+```bash
 go install github.com/yutkat/notebooklm-mcp/cmd/nlm@latest
 ```
 
-インストール後、`nlm --version` でパスが通っていることを確認してください。
+> Windows の場合、`%USERPROFILE%\go\bin` を `PATH` 環境変数に追加してください。
 
-### 3. Google アカウントの認証(Chrome 認証)
+インストール後、ターミナルを開き直して以下で確認します。
 
-`nlm` は内部で **Chrome を起動して Google アカウントにログイン** することで NotebookLM を操作します。リポジトリをクローンしただけでは認証情報が含まれていないため、**初回は必ず以下を実行して自分の Google アカウントでログイン** してください。
+```bash
+nlm --version
+```
+
+### 4. NotebookLM への Chrome 認証(初回必須)
+
+リポジトリには認証情報は含まれていません。**クローンした各自が、自分の Google アカウントで NotebookLM にログインする必要があります**。
+
+以下のコマンドを実行すると Chrome が起動して Google ログイン画面が開きます。
 
 ```bash
 nlm login
 ```
 
-- 実行すると Chrome が起動し、Google ログイン画面が開きます
-- 普段 NotebookLM を使っている Google アカウントでログインしてください
-- 認証トークンはローカルに保存され、以降は自動で再利用されます
-- トークンが切れた場合や別アカウントに切り替えたい場合も `nlm login` を再実行します
+手順:
 
-> ⚠️ **重要**: NotebookLM が利用可能なプラン(個人/Workspace 等)の Google アカウントが必要です。認証は各ユーザーのローカル環境で完結し、リポジトリには含まれません。
+1. コマンドを実行すると **Google Chrome が自動で起動** します
+2. ブラウザに **Google アカウントのログイン画面** が表示されます
+3. 普段 **NotebookLM (https://notebooklm.google.com)** を使っている Google アカウントでログインします
+4. ログインに成功すると、認証トークンがローカルに保存されます
+5. 以降のコマンドはトークンを自動で再利用するので、`nlm login` を毎回実行する必要はありません
+6. トークンが切れた場合や別アカウントに切り替えたい場合は、再度 `nlm login` を実行してください
+
+> ⚠️ **重要**
+> - NotebookLM が利用可能な Google アカウント(個人 / Workspace 等)が必要です
+> - 認証は各ユーザーのローカル環境で完結し、リポジトリには **一切含まれません**
+> - 他人がクローンしても、認証は最初から自分でやり直す必要があります
 
 ---
 
@@ -83,25 +128,53 @@ papers/
 
 ### 基本形
 
+**macOS / Linux**
+
 ```bash
 python3 notebooklm/process_paper.py <PDF のパス>
 ```
 
+**Windows**
+
+```powershell
+python notebooklm\process_paper.py <PDF のパス>
+```
+
 ### 実行例
+
+**macOS / Linux**
 
 ```bash
 python3 notebooklm/process_paper.py papers/MultiAgentGraphRAG_2511.08274/MultiAgentGraphRAG.pdf
+```
+
+**Windows**
+
+```powershell
+python notebooklm\process_paper.py papers\MultiAgentGraphRAG_2511.08274\MultiAgentGraphRAG.pdf
 ```
 
 ### バックグラウンド実行(推奨)
 
 4 種の生成には合計で 30 分〜1 時間かかります。バックグラウンドで実行し、ログをファイルに残しておくと安心です。
 
+**macOS / Linux**
+
 ```bash
-nohup python3 notebooklm/process_paper.py <PDF のパス> > /tmp/process.log 2>&1 &
+nohup python3 notebooklm/process_paper.py <PDF のパス> > process.log 2>&1 &
 ```
 
-完了すると macOS の通知センターに通知が届きます。
+**Windows(PowerShell)**
+
+```powershell
+Start-Process python `
+  -ArgumentList "notebooklm\process_paper.py","<PDF のパス>" `
+  -RedirectStandardOutput process.log `
+  -RedirectStandardError process.err `
+  -NoNewWindow
+```
+
+完了するとデスクトップに通知が届きます(macOS 通知センター / Windows トースト通知 / Linux libnotify)。通知が表示されない環境でも、ログファイル末尾の `[NOTIFY]` 行で完了を確認できます。
 
 ---
 
@@ -135,6 +208,17 @@ papers/MultiAgentGraphRAG_2511.08274/
 - 次に読むべき論文は?
 
 詳細なプロンプトや生成オプションは `notebooklm/pipeline.md` を参照してください。
+
+---
+
+## 🧰 トラブルシューティング
+
+| 症状 | 原因と対処 |
+|------|-----------|
+| `nlm: command not found` / `'nlm' は内部コマンドではない` | `nlm` がインストールされていない、または PATH に通っていない。インストール手順を再確認 |
+| `nlm login` で Chrome が起動しない | Chrome 未インストール、もしくは既定ブラウザの設定で Chrome が見つからない |
+| 認証エラーで API 呼び出しが失敗する | `nlm login` を再実行してトークンを更新 |
+| 通知が表示されない | OS の通知設定で許可されていない、または Linux で `libnotify` 未導入。標準出力 / ログの `[NOTIFY]` 行で完了確認可 |
 
 ---
 

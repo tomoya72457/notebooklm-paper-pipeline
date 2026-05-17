@@ -4,7 +4,7 @@
 設計の要点:
 - AI エージェント(Claude/Codex 等)が完了を polling せず、ローカルプロセス内で待機する
   → 実行中の AI トークン消費はゼロ
-- macOS 通知センターで完了を通知
+- 完了をデスクトップ通知 (macOS / Windows / Linux 対応)
 - 落合フォーマットのプロンプトは papers/notebooklm/pipeline.md と整合(変更時は両方更新)
 
 Usage:
@@ -295,16 +295,47 @@ def trigger_specific_artifact(notebook_id: str, artifact: str, model: str | None
         raise ValueError(f"Unknown artifact: {artifact}")
 
 
-def notify_macos(title: str, message: str) -> None:
-    """macOS 通知センター。失敗しても全体は止めない(副作用扱い)。"""
-    subprocess.run(
-        [
-            "osascript",
-            "-e",
-            f'display notification "{message}" with title "{title}" sound name "Glass"',
-        ],
-        check=False,
-    )
+def notify_desktop(title: str, message: str) -> None:
+    """OS のデスクトップ通知を発火する。失敗しても全体は止めない(副作用扱い)。
+
+    - macOS  : osascript で通知センターに表示
+    - Windows: PowerShell + Windows.Forms バルーン通知
+    - Linux  : notify-send (libnotify) があれば表示
+    どの OS でも標準出力にもメッセージを出すので、通知が出なくても完了は判別可能。
+    """
+    import platform
+
+    system = platform.system()
+    try:
+        if system == "Darwin":
+            subprocess.run(
+                [
+                    "osascript",
+                    "-e",
+                    f'display notification "{message}" with title "{title}" sound name "Glass"',
+                ],
+                check=False,
+            )
+        elif system == "Windows":
+            ps_script = (
+                '[reflection.assembly]::loadwithpartialname("System.Windows.Forms") | Out-Null; '
+                '[reflection.assembly]::loadwithpartialname("System.Drawing") | Out-Null; '
+                '$n = New-Object System.Windows.Forms.NotifyIcon; '
+                '$n.Icon = [System.Drawing.SystemIcons]::Information; '
+                '$n.Visible = $true; '
+                f'$n.ShowBalloonTip(10000, "{title}", "{message}", '
+                '[System.Windows.Forms.ToolTipIcon]::Info)'
+            )
+            subprocess.run(
+                ["powershell", "-NoProfile", "-Command", ps_script],
+                check=False,
+            )
+        else:  # Linux 等
+            if shutil.which("notify-send"):
+                subprocess.run(["notify-send", title, message], check=False)
+    except Exception:
+        pass
+    print(f"\n[NOTIFY] {title}: {message}", flush=True)
 
 
 def process(pdf_path: Path, dest_dir: Path, model: str | None = None, fallback_model: str | None = None, force: bool = False) -> None:
@@ -335,7 +366,7 @@ def process(pdf_path: Path, dest_dir: Path, model: str | None = None, fallback_m
         shutil.move(str(pdf_path), str(canonical_pdf))
         print(f"[6/6] Renamed PDF: {pdf_path.name} -> {canonical_pdf.name}", flush=True)
 
-    notify_macos(title, "NotebookLM 4 種ダウンロード完了")
+    notify_desktop(title, "NotebookLM 4 種ダウンロード完了")
     print("Done.", flush=True)
 
 
